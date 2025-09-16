@@ -25,17 +25,17 @@ public class VisitService {
     private final DoctorRepository doctorRepository;
 
     @Transactional
-    public Visit createVisit(VisitRequestDto request) {
+    public Visit createVisit(VisitRequestDto visitRequest) {
 
-        Doctor doctor = doctorRepository.findById(request.getDoctorId())
+        Doctor doctor = doctorRepository.findById(visitRequest.getDoctorId())
                 .orElseThrow(() -> new IllegalArgumentException("Doctor not found"));
 
-        Patient patient = patientRepository.findById(request.getPatientId())
+        Patient patient = patientRepository.findById(visitRequest.getPatientId())
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
 
         ZoneId doctorZone = ZoneId.of(doctor.getTimezone());
-        ZonedDateTime start = ZonedDateTime.parse(request.getStart()).withZoneSameInstant(doctorZone);
-        ZonedDateTime end = ZonedDateTime.parse(request.getEnd()).withZoneSameInstant(doctorZone);
+        ZonedDateTime start = ZonedDateTime.parse(visitRequest.getStart()).withZoneSameInstant(doctorZone);
+        ZonedDateTime end = ZonedDateTime.parse(visitRequest.getEnd()).withZoneSameInstant(doctorZone);
 
         if (visitRepository.existsByDoctorAndTimeOverlap(doctor.getId(),
                 start.toLocalDateTime(), end.toLocalDateTime())) {

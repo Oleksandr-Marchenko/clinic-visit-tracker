@@ -37,20 +37,20 @@ public class PatientService {
 
         Map<Long, Long> totalPatientsMap = visitRepository.countPatientsPerDoctor();
 
-        List<PatientResponseDto> patientDtos = patientsPage.stream().map(p -> {
+        List<PatientResponseDto> patientDtos = patientsPage.stream().map(patient -> {
             List<VisitDto> lastVisits = visits.stream()
-                    .filter(v -> v.getPatient().getId().equals(p.getId()))
-                    .map(v -> new VisitDto(
-                            v.getStartDateTime(),
-                            v.getEndDateTime(),
+                    .filter(visit -> visit.getPatient().getId().equals(patient.getId()))
+                    .map(visit -> new VisitDto(
+                            visit.getStartDateTime(),
+                            visit.getEndDateTime(),
                             new DoctorDto(
-                                    v.getDoctor().getFirstName(),
-                                    v.getDoctor().getLastName(),
-                                    totalPatientsMap.getOrDefault(v.getDoctor().getId(), 0L).intValue()
+                                    visit.getDoctor().getFirstName(),
+                                    visit.getDoctor().getLastName(),
+                                    totalPatientsMap.getOrDefault(visit.getDoctor().getId(), 0L).intValue()
                             )
                     ))
                     .collect(Collectors.toList());
-            return new PatientResponseDto(p.getFirstName(), p.getLastName(), lastVisits);
+            return new PatientResponseDto(patient.getFirstName(), patient.getLastName(), lastVisits);
         }).toList();
 
         return new PagedResponseDto<>(patientDtos, patientsPage.getTotalElements());
