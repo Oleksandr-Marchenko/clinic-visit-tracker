@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-seed
+      author: Oleksandr Marchenko
+      changes:
+        - insert:
+            tableName: doctors
+            columns:
+              - column: { name: first_name, value: Ihor }
+              - column: { name: last_name, value: Karpenko }
+              - column: { name: timezone, value: Europe/Kyiv }
+        - insert:
+            tableName: doctors
+            columns:
+              - column: { name: first_name, value: Anna }
+              - column: { name: last_name, value: Lee }
+              - column: { name: timezone, value: Europe/Kyiv }
+        - insert:
+            tableName: patients
+            columns:
+              - column: { name: first_name, value: Ivan }
+              - column: { name: last_name, value: Petrenko }
+        - insert:
+            tableName: patients
+            columns:
+              - column: { name: first_name, value: Olga }
+              - column: { name: last_name, value: Shevchenko }
+        - sql:
+            sql: |
+              INSERT INTO visits(start_date_time, end_date_time, patient_id, doctor_id)
+              VALUES
+                ('2025-01-01 09:00:00','2025-01-01 10:00:00', 1, 1),
+                ('2025-01-02 09:00:00','2025-01-02 10:00:00', 1, 1),
+                ('2025-01-03 09:00:00','2025-01-03 10:00:00', 1, 2),
+                ('2025-01-04 09:00:00','2025-01-04 10:00:00', 2, 1);

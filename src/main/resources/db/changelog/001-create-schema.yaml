@@ -1,0 +1,61 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-tables
+      author: Oleksandr Marchenko
+      changes:
+        - createTable:
+            tableName: doctors
+            columns:
+              - column: { name: id, type: BIGINT AUTO_INCREMENT, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: first_name, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: last_name, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: timezone, type: VARCHAR(64), constraints: { nullable: false } }
+        - createTable:
+            tableName: patients
+            columns:
+              - column: { name: id, type: BIGINT AUTO_INCREMENT, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: first_name, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: last_name, type: VARCHAR(255), constraints: { nullable: false } }
+        - createTable:
+            tableName: visits
+            columns:
+              - column: { name: id, type: BIGINT AUTO_INCREMENT, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: start_date_time, type: DATETIME, constraints: { nullable: false } }
+              - column: { name: end_date_time, type: DATETIME, constraints: { nullable: false } }
+              - column: { name: patient_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: doctor_id, type: BIGINT, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: visits
+            baseColumnNames: patient_id
+            constraintName: fk_visits_patient
+            referencedTableName: patients
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: visits
+            baseColumnNames: doctor_id
+            constraintName: fk_visits_doctor
+            referencedTableName: doctors
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_visits_doctor_start
+            tableName: visits
+            columns:
+              - column: { name: doctor_id }
+              - column: { name: start_date_time }
+        - createIndex:
+            indexName: idx_visits_patient
+            tableName: visits
+            columns:
+              - column: { name: patient_id }
+        - createIndex:
+            indexName: idx_patients_first_name
+            tableName: patients
+            columns:
+              - column: { name: first_name }
+        - createIndex:
+            indexName: idx_patients_last_name
+            tableName: patients
+            columns:
+              - column: { name: last_name }
