@@ -11,15 +11,21 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "visits")
+@Table(name = "visits",
+        indexes = {
+                @Index(name = "idx_visits_doctor_start", columnList = "doctor_id,startDateTime"),
+                @Index(name = "idx_visits_patient", columnList = "patient_id")
+        })
 public class Visit {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "start_date_time")
     private LocalDateTime startDateTime;
 
+    @Column(name = "end_date_time")
     private LocalDateTime endDateTime;
 
     @ManyToOne(fetch = FetchType.LAZY)

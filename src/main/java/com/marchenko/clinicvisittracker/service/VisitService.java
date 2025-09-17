@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
@@ -33,9 +34,29 @@ public class VisitService {
         Patient patient = patientRepository.findById(visitRequest.getPatientId())
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
 
-        ZoneId doctorZone = ZoneId.of(doctor.getTimezone());
-        ZonedDateTime start = ZonedDateTime.parse(visitRequest.getStart()).withZoneSameInstant(doctorZone);
-        ZonedDateTime end = ZonedDateTime.parse(visitRequest.getEnd()).withZoneSameInstant(doctorZone);
+        ZoneId doctorZone = resolveZoneId(doctor.getTimezone());
+
+        ZonedDateTime parsedStart;
+        ZonedDateTime parsedEnd;
+        try {
+            parsedStart = ZonedDateTime.parse(visitRequest.getStart());
+        } catch (Exception ex) {
+            LocalDateTime localStart = LocalDateTime.parse(visitRequest.getStart());
+            parsedStart = localStart.atZone(doctorZone);
+        }
+        try {
+            parsedEnd = ZonedDateTime.parse(visitRequest.getEnd());
+        } catch (Exception ex) {
+            LocalDateTime localEnd = LocalDateTime.parse(visitRequest.getEnd());
+            parsedEnd = localEnd.atZone(doctorZone);
+        }
+
+        ZonedDateTime start = parsedStart.withZoneSameInstant(doctorZone);
+        ZonedDateTime end = parsedEnd.withZoneSameInstant(doctorZone);
+
+        if (!start.isBefore(end)) {
+            throw new IllegalArgumentException("start must be before end");
+        }
 
         if (visitRepository.existsByDoctorAndTimeOverlap(doctor.getId(),
                 start.toLocalDateTime(), end.toLocalDateTime())) {
@@ -49,5 +70,16 @@ public class VisitService {
         visit.setEndDateTime(end.toLocalDateTime());
 
         return visitRepository.save(visit);
+    }
+
+    private ZoneId resolveZoneId(String timezoneId) {
+        try {
+            return ZoneId.of(timezoneId);
+        } catch (Exception ex) {
+            if ("Europe/Kyiv".equalsIgnoreCase(timezoneId)) {
+                return ZoneId.of("Europe/Kiev");
+            }
+            throw ex;
+        }
     }
 }

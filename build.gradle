@@ -39,3 +39,20 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+tasks.register('mysqlDump', Exec) {
+    def db = project.findProperty('db') ?: 'clinic'
+    def user = project.findProperty('user') ?: ''
+    def pass = project.findProperty('pass') ?: ''
+    def host = project.findProperty('host') ?: 'localhost'
+    def port = project.findProperty('port') ?: '3306'
+    def outFile = "${project.projectDir}/db-dump/${db}-dump.sql"
+    doFirst {
+        file("${project.projectDir}/db-dump").mkdirs()
+    }
+    if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+        commandLine 'cmd', '/c', "mysqldump -h ${host} -P ${port} -u ${user} -p${pass} --routines --triggers --single-transaction --databases ${db} > \"${outFile}\""
+    } else {
+        commandLine 'bash', '-c', "mysqldump -h ${host} -P ${port} -u ${user} -p${pass} --routines --triggers --single-transaction --databases ${db} > '${outFile}'"
+    }
+}

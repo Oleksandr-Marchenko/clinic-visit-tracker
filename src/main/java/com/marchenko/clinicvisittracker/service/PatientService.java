@@ -5,9 +5,9 @@ import com.marchenko.clinicvisittracker.dto.PagedResponseDto;
 import com.marchenko.clinicvisittracker.dto.PatientResponseDto;
 import com.marchenko.clinicvisittracker.dto.VisitDto;
 import com.marchenko.clinicvisittracker.entity.Patient;
-import com.marchenko.clinicvisittracker.entity.Visit;
 import com.marchenko.clinicvisittracker.repository.PatientRepository;
 import com.marchenko.clinicvisittracker.repository.VisitRepository;
+import com.marchenko.clinicvisittracker.repository.projection.VisitLastFlatProjection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,20 +34,36 @@ public class PatientService {
 
         Page<Patient> patientsPage = patientRepository.findAllWithSearch(search, pageable);
 
-        List<Visit> visits = visitRepository.findLastVisitsForPatients(patientsPage.getContent(), doctorIds);
+        List<Long> patientIds = patientsPage.stream().map(Patient::getId).toList();
 
-        Map<Long, Long> totalPatientsMap = visitRepository.countPatientsPerDoctor();
+        boolean applyDoctorFilter = doctorIds != null && !doctorIds.isEmpty();
+        List<Long> safeDoctorIds = applyDoctorFilter ? doctorIds : null;
+
+        List<VisitLastFlatProjection> visits = patientIds.isEmpty()
+                ? List.of()
+                : visitRepository.findLastVisitsForPatientsFlat(patientIds, safeDoctorIds, applyDoctorFilter);
+
+        List<Long> doctorIdsUsed = visits.stream().map(VisitLastFlatProjection::getDoctorId).distinct().toList();
+        Map<Long, Integer> totalPatientsMap = new HashMap<>();
+        if (!doctorIdsUsed.isEmpty()) {
+            List<Object[]> rows = visitRepository.countPatientsPerDoctorFor(doctorIdsUsed);
+            for (Object[] row : rows) {
+                Long dId = ((Number) row[0]).longValue();
+                Integer cnt = ((Number) row[1]).intValue();
+                totalPatientsMap.put(dId, cnt);
+            }
+        }
 
         List<PatientResponseDto> patientDtos = patientsPage.stream().map(patient -> {
             List<VisitDto> lastVisits = visits.stream()
-                    .filter(visit -> visit.getPatient().getId().equals(patient.getId()))
-                    .map(visit -> new VisitDto(
-                            visit.getStartDateTime(),
-                            visit.getEndDateTime(),
+                    .filter(v -> v.getPatientId().equals(patient.getId()))
+                    .map(v -> new VisitDto(
+                            v.getStartDateTime(),
+                            v.getEndDateTime(),
                             new DoctorDto(
-                                    visit.getDoctor().getFirstName(),
-                                    visit.getDoctor().getLastName(),
-                                    totalPatientsMap.getOrDefault(visit.getDoctor().getId(), 0L).intValue()
+                                    v.getDoctorFirstName(),
+                                    v.getDoctorLastName(),
+                                    totalPatientsMap.getOrDefault(v.getDoctorId(), 0)
                             )
                     ))
                     .collect(Collectors.toList());
