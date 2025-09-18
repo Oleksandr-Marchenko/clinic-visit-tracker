@@ -1,6 +1,7 @@
 package com.marchenko.clinicvisittracker.service;
 
 import com.marchenko.clinicvisittracker.dto.VisitRequestDto;
+import com.marchenko.clinicvisittracker.dto.VisitResponseDto;
 import com.marchenko.clinicvisittracker.entity.Doctor;
 import com.marchenko.clinicvisittracker.entity.Patient;
 import com.marchenko.clinicvisittracker.entity.Visit;
@@ -26,13 +27,15 @@ public class VisitService {
     private final DoctorRepository doctorRepository;
 
     @Transactional
-    public Visit createVisit(VisitRequestDto visitRequest) {
+    public VisitResponseDto createVisit(VisitRequestDto visitRequest) {
 
         Doctor doctor = doctorRepository.findById(visitRequest.getDoctorId())
                 .orElseThrow(() -> new IllegalArgumentException("Doctor not found"));
 
-        Patient patient = patientRepository.findById(visitRequest.getPatientId())
-                .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+        if (!patientRepository.existsById(visitRequest.getPatientId())) {
+            throw new IllegalArgumentException("Patient not found");
+        }
+        Patient patient = patientRepository.getReferenceById(visitRequest.getPatientId());
 
         ZoneId doctorZone = resolveZoneId(doctor.getTimezone());
 
@@ -69,7 +72,14 @@ public class VisitService {
         visit.setStartDateTime(start.toLocalDateTime());
         visit.setEndDateTime(end.toLocalDateTime());
 
-        return visitRepository.save(visit);
+        Visit saved = visitRepository.save(visit);
+        return new VisitResponseDto(
+                saved.getId(),
+                start.toLocalDateTime().toString(),
+                end.toLocalDateTime().toString(),
+                patient.getId(),
+                doctor.getId()
+        );
     }
 
     private ZoneId resolveZoneId(String timezoneId) {

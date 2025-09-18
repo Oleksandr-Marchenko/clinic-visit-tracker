@@ -1,7 +1,7 @@
 package com.marchenko.clinicvisittracker.controller;
 
 import com.marchenko.clinicvisittracker.dto.VisitRequestDto;
-import com.marchenko.clinicvisittracker.entity.Visit;
+import com.marchenko.clinicvisittracker.dto.VisitResponseDto;
 import com.marchenko.clinicvisittracker.service.VisitService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ public class VisitController {
     private final VisitService visitService;
 
     @PostMapping("/visits")
-    public Visit createVisit(@Valid @RequestBody VisitRequestDto visitRequest) {
+    public VisitResponseDto createVisit(@Valid @RequestBody VisitRequestDto visitRequest) {
         return visitService.createVisit(visitRequest);
     }
 }

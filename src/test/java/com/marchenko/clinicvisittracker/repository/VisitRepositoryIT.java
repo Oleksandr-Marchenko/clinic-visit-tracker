@@ -16,7 +16,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-class VisitRepositoryTest extends MySQLTestContainer {
+class VisitRepositoryIT extends MySQLTestContainer {
 
     @Autowired
     private VisitRepository visitRepository;

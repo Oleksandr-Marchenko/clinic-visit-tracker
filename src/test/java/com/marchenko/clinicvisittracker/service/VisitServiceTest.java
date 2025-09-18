@@ -3,72 +3,97 @@ package com.marchenko.clinicvisittracker.service;
 import com.marchenko.clinicvisittracker.dto.VisitRequestDto;
 import com.marchenko.clinicvisittracker.entity.Doctor;
 import com.marchenko.clinicvisittracker.entity.Patient;
-import com.marchenko.clinicvisittracker.entity.Visit;
+import com.marchenko.clinicvisittracker.dto.VisitResponseDto;
 import com.marchenko.clinicvisittracker.repository.DoctorRepository;
 import com.marchenko.clinicvisittracker.repository.PatientRepository;
 import com.marchenko.clinicvisittracker.repository.VisitRepository;
-import com.marchenko.clinicvisittracker.testsupport.MySQLTestContainer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@SpringBootTest
-class VisitServiceTest extends MySQLTestContainer {
+@ExtendWith(MockitoExtension.class)
+class VisitServiceTest {
 
-    @Autowired
-    private VisitService visitService;
-    @Autowired
+    @Mock
     private VisitRepository visitRepository;
-    @Autowired
-    private DoctorRepository doctorRepository;
-    @Autowired
+    @Mock
     private PatientRepository patientRepository;
+    @Mock
+    private DoctorRepository doctorRepository;
+
+    @InjectMocks
+    private VisitService visitService;
 
     private Doctor doctor;
     private Patient patient;
 
     @BeforeEach
-    void setup() {
-        visitRepository.deleteAll();
-        doctorRepository.deleteAll();
-        patientRepository.deleteAll();
-        doctor = doctorRepository.save(new Doctor(null, "Ihor", "Karpenko", "Europe/Kyiv"));
-        patient = patientRepository.save(new Patient(null, "Ivan", "Petrenko"));
+    void setUp() {
+        doctor = new Doctor(1L, "Ihor", "Karpenko", "Europe/Kyiv");
+        patient = new Patient(2L, "Ivan", "Petrenko");
     }
 
     @Test
-    @Transactional
-    void createVisit_accepts_local_time_and_validates_order() {
-        String start = LocalDateTime.of(2025, 1, 1, 10, 0).toString();
-        String end = LocalDateTime.of(2025, 1, 1, 11, 0).toString();
-        VisitRequestDto dto = new VisitRequestDto(start, end, patient.getId(), doctor.getId());
-        Visit visit = visitService.createVisit(dto);
-        assertThat(visit.getId()).isNotNull();
-
-        VisitRequestDto invalid = new VisitRequestDto(end, start, patient.getId(), doctor.getId());
-        assertThrows(IllegalArgumentException.class, () -> visitService.createVisit(invalid));
+    void throws_if_doctor_not_found() {
+        when(doctorRepository.findById(1L)).thenReturn(Optional.empty());
+        VisitRequestDto dto = new VisitRequestDto("2025-01-01T09:00:00", "2025-01-01T10:00:00", 2L, 1L);
+        assertThrows(IllegalArgumentException.class, () -> visitService.createVisit(dto));
     }
 
     @Test
-    void createVisit_prevents_overlap() {
-        VisitRequestDto dto1 = new VisitRequestDto(
-                LocalDateTime.of(2025, 1, 1, 10, 0).toString(),
-                LocalDateTime.of(2025, 1, 1, 11, 0).toString(),
-                patient.getId(), doctor.getId());
-        visitService.createVisit(dto1);
+    void throws_if_patient_not_found() {
+        when(doctorRepository.findById(1L)).thenReturn(Optional.of(doctor));
+        when(patientRepository.existsById(2L)).thenReturn(false);
+        VisitRequestDto dto = new VisitRequestDto("2025-01-01T09:00:00", "2025-01-01T10:00:00", 2L, 1L);
+        assertThrows(IllegalArgumentException.class, () -> visitService.createVisit(dto));
+    }
 
-        VisitRequestDto dto2 = new VisitRequestDto(
-                LocalDateTime.of(2025, 1, 1, 10, 30).toString(),
-                LocalDateTime.of(2025, 1, 1, 11, 30).toString(),
-                patient.getId(), doctor.getId());
-        assertThrows(IllegalArgumentException.class, () -> visitService.createVisit(dto2));
+    @Test
+    void throws_if_start_not_before_end() {
+        when(doctorRepository.findById(1L)).thenReturn(Optional.of(doctor));
+        when(patientRepository.existsById(2L)).thenReturn(true);
+        VisitRequestDto dto = new VisitRequestDto("2025-01-01T10:00:00", "2025-01-01T09:00:00", 2L, 1L);
+        assertThrows(IllegalArgumentException.class, () -> visitService.createVisit(dto));
+    }
+
+    @Test
+    void throws_if_overlap_exists() {
+        when(doctorRepository.findById(1L)).thenReturn(Optional.of(doctor));
+        when(patientRepository.existsById(2L)).thenReturn(true);
+        when(visitRepository.existsByDoctorAndTimeOverlap(eq(1L), any(), any())).thenReturn(true);
+
+        VisitRequestDto dto = new VisitRequestDto("2025-01-01T09:00:00", "2025-01-01T10:00:00", 2L, 1L);
+        assertThrows(IllegalArgumentException.class, () -> visitService.createVisit(dto));
+    }
+
+    @Test
+    void saves_visit_when_valid_no_overlap() {
+        when(doctorRepository.findById(1L)).thenReturn(Optional.of(doctor));
+        when(patientRepository.existsById(2L)).thenReturn(true);
+        when(patientRepository.getReferenceById(2L)).thenReturn(patient);
+        when(visitRepository.existsByDoctorAndTimeOverlap(eq(1L), any(), any())).thenReturn(false);
+        when(visitRepository.save(any())).thenAnswer(inv -> {
+            com.marchenko.clinicvisittracker.entity.Visit v = inv.getArgument(0);
+            v.setId(100L);
+            return v;
+        });
+
+        VisitRequestDto dto = new VisitRequestDto("2025-01-01T09:00:00", "2025-01-01T10:00:00", 2L, 1L);
+        VisitResponseDto saved = visitService.createVisit(dto);
+        assertThat(saved.getId()).isEqualTo(100L);
+        verify(visitRepository).save(any());
     }
 }
 
